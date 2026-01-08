@@ -1,0 +1,72 @@
+
+deployment.yaml
+cat <<EOF > templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-nginx
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-nginx
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-nginx
+    spec:
+      containers:
+        - name: nginx
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - containerPort: 80
+          volumeMounts:
+{{ toYaml .Values.volumeMounts | indent 12 }}
+      volumes:
+{{ toYaml .Values.volumes | indent 8 }}
+EOF
+
+service.yaml
+cat <<EOF > templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-svc
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: 80
+  selector:
+    app: {{ .Release.Name }}-nginx
+EOF
+
+cat <<EOF > templates/ingress.yaml
+{{- if .Values.ingress.enabled -}}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ .Release.Name }}-ingress
+  annotations:
+    {{- toYaml .Values.ingress.annotations | nindent 4 }}
+spec:
+  rules:
+    {{- range .Values.ingress.hosts }}
+    - host: {{ .host | quote }}
+      http:
+        paths:
+          {{- range .paths }}
+          - path: {{ .path }}
+            pathType: {{ .pathType }}
+            backend:
+              service:
+                name: {{ $.Release.Name }}-svc
+                port:
+                  number: {{ $.Values.service.port }}
+          {{- end }}
+    {{- end }}
+{{- end }}
+EOF
+
+The information contained in this e-mail transmission is confidential and may be privileged. It is intended only for the addressee(s) stated above. If you are not an addressee, any use, dissemination, distribution, publication, or copying of the information contained in this e-mail is strictly prohibited. If you have received this e-mail in error, please immediately notify us by telephone or e-mail the sender and delete the e-mail from your system. Whilst we have taken reasonable precautions to ensure that any attachment to this e-mail has been swept for viruses, e-mail communications cannot be guaranteed to be secure or error-free, as information can be corrupted, intercepted, lost or contain viruses. We do not accept liability for such matters or their consequences-
